@@ -80,7 +80,7 @@ data/
   "faces": [
     {
       "face_index": 0,
-      "num_landmarks": 478,
+      "num_landmarks": 468,
       "landmarks": [
         {
           "index": 0,

@@ -52,9 +52,10 @@ def compute_3d_reconstruction_error(
         Dict chứa MSE, MAE, max_error, RMSE.
     """
     diff = pred_vertices - gt_vertices
+    abs_diff = np.abs(diff)
     mse = float(np.mean(diff ** 2))
-    mae = float(np.mean(np.abs(diff)))
-    max_error = float(np.max(np.abs(diff)))
+    mae = float(np.mean(abs_diff))
+    max_error = float(np.max(abs_diff))
     metrics = {
         "mse": mse,
         "mae": mae,

@@ -64,7 +64,8 @@ def plot_landmarks_3d(
 
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(xs, ys, zs, c=zs, cmap="viridis", s=1)
+    marker_size = 1
+    ax.scatter(xs, ys, zs, c=zs, cmap="viridis", s=marker_size)
     ax.set_title("Face Landmarks 3D - DECA_DHMT")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
