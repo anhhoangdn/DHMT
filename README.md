@@ -1,4 +1,4 @@
-# DECA_DHMT — Tái tạo khuôn mặt 3D với DECA & MediaPipe
+# DHMT — Tái tạo khuôn mặt 3D với DECA & MediaPipe
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
 ![License](https://img.shields.io/badge/License-MIT-green)
