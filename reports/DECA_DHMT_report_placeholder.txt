@@ -1,0 +1,20 @@
+DECA_DHMT - Báo cáo Đồ án Môn học Đồ Họa Máy Tính
+====================================================
+
+Đây là file placeholder cho báo cáo PDF của đồ án DECA_DHMT.
+
+Báo cáo đầy đủ (PDF) được nộp qua hệ thống của trường hoặc qua email giảng viên.
+
+Nội dung báo cáo bao gồm:
+1. Giới thiệu đề tài và mục tiêu
+2. Tổng quan về MediaPipe Face Mesh
+3. Tổng quan về DECA và FLAME 3D model
+4. Kiến trúc pipeline đề xuất
+5. Kết quả thực nghiệm (landmarks + 3D reconstruction)
+6. Đánh giá metrics (NME, PSNR, 3D error)
+7. Kết luận và hướng phát triển
+8. Tài liệu tham khảo
+
+Tác giả: Nhóm DECA_DHMT
+Năm học: 2024-2025
+Môn học: Đồ Họa Máy Tính (DHMT)

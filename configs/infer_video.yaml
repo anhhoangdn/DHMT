@@ -1,0 +1,15 @@
+# Cấu hình cho inference từ video/webcam
+input_type: "video"
+mediapipe:
+  static_image_mode: false
+  max_num_faces: 1
+  min_detection_confidence: 0.5
+  min_tracking_confidence: 0.5
+deca:
+  device: "cuda"
+  save_mesh: false
+  save_texture: false
+  save_rendered_image: true
+video:
+  fps_output: 30
+  codec: "mp4v"
