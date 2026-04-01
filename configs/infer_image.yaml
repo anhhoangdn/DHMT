@@ -1,0 +1,11 @@
+# Cấu hình cho inference từ ảnh tĩnh
+input_type: "image"
+mediapipe:
+  static_image_mode: true
+  max_num_faces: 1
+  min_detection_confidence: 0.5
+deca:
+  device: "cuda"
+  save_mesh: true
+  save_texture: true
+  save_rendered_image: true

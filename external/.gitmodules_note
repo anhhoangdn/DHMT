@@ -1,0 +1,12 @@
+NOTE: DECA Submodule Location
+=============================
+
+This directory (external/) is where the DECA Git submodule should be initialized.
+
+To set up DECA:
+  git submodule add https://github.com/yfeng95/DECA.git external/DECA
+  git submodule update --init --recursive
+
+After initialization, external/DECA/ will contain the full DECA repository.
+The external/DECA/ directory is tracked as a submodule in .gitmodules,
+NOT as regular files in this repository.
