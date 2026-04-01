@@ -388,14 +388,6 @@ jupyter notebook notebooks/01_mediapipe_landmarks.ipynb
 
 ---
 
-## 👥 Thành viên
-
-| Họ tên | MSSV | Vai trò |
-|---|---|---|
-| Nguyễn Anh Hoàng | xxxxxxxx | Nhóm trưởng |
-
----
-
 ## 📄 License
 
 MIT License — xem file [LICENSE](LICENSE).
