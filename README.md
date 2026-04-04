@@ -150,7 +150,7 @@ DECA_DHMT/
 
 ```bash
 # Clone repo
-git clone https://github.com/anhhoangdn/DECA_DHMT.git
+git clone https://github.com/anhhoangdn/DHMT.git
 cd DECA_DHMT
 
 # Cài đặt tự động
@@ -161,15 +161,6 @@ python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
-```
-
-### Cách 2 — Conda
-
-```bash
-conda env create -f environment.yml
-conda activate deca_dhmt
-```
-
 ---
 
 ## 🔗 Thiết lập DECA Submodule
