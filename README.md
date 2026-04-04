@@ -154,7 +154,7 @@ git clone https://github.com/anhhoangdn/DHMT.git
 cd DHMT
 
 # Cài đặt tự động
-bash setup.sh
+setup.bat
 
 # Hoặc thủ công:
 python3 -m venv venv
