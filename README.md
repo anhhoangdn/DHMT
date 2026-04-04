@@ -151,7 +151,7 @@ DECA_DHMT/
 ```bash
 # Clone repo
 git clone https://github.com/anhhoangdn/DHMT.git
-cd DECA_DHMT
+cd DHMT
 
 # Cài đặt tự động
 bash setup.sh
