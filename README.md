@@ -226,22 +226,13 @@ python src/recon/run_deca.py \
 
 ```bash
 # Ảnh
-python src/pipeline/run_pipeline.py \
-    --input data/samples/test.jpg \
-    --output outputs \
-    --deca-root external/DECA \
-    --device cuda
+python src/pipeline/run_pipeline.py --input data/samples/test.jpg --output outputs --deca-root external/DECA --device cuda
 
 # Video
-python src/pipeline/run_pipeline.py \
-    --input data/samples/test.mp4 \
-    --output outputs \
-    --deca-root external/DECA
+python src/pipeline/run_pipeline.py --input data/samples/test.mp4 --output outputs --deca-root external/DECA
 
 # Chỉ landmark (bỏ qua DECA)
-python src/pipeline/run_pipeline.py \
-    --input data/samples/test.jpg \
-    --skip-deca
+python src/pipeline/run_pipeline.py --input data/samples/test.jpg --skip-deca
 
 # Webcam (landmark only, DECA không hỗ trợ realtime)
 python src/pipeline/run_pipeline.py --input 0 --skip-deca
