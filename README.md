@@ -199,19 +199,16 @@ cd external/DECA && bash fetch_data.sh && cd ../..
 
 ```bash
 # Ảnh tĩnh
-python src/preprocess/landmark_mediapipe.py \
-    --input data/samples/test.jpg \
-    --output_dir outputs/landmarks2d
+python src/preprocess/landmark_mediapipe.py --input data/samples/test.jpg --output_dir outputs/landmarks2d
+
 
 # Video
-python src/preprocess/landmark_mediapipe.py \
-    --input data/samples/test.mp4 \
-    --output_dir outputs/landmarks2d
+python src/preprocess/landmark_mediapipe.py --input data/samples/test.mp4 --output_dir outputs/landmarks2d
+
 
 # Webcam (index 0)
-python src/preprocess/landmark_mediapipe.py \
-    --input 0 \
-    --output_dir outputs/landmarks2d
+python src/preprocess/landmark_mediapipe.py --input 0 --output_dir outputs/landmarks2d
+
 # Nhấn 'q' để dừng webcam
 ```
 
