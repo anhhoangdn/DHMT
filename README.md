@@ -51,7 +51,7 @@
 │  outputs/textures/      — UV texture map                 │
 │  outputs/renders/       — ảnh rendered 3D                │
 │  outputs/videos/        — video annotate (webcam/video)  │
-└──────────────────────────────────────────────────────────┘
+└────────────────────────┴─────────────────────────────────┘
 ```
 
 ---
@@ -144,36 +144,36 @@ DECA_DHMT/
 
 ---
 
-## ⚙️ Cài đặt
+## ⚙️ Cài đặt (Conda)
 
 ### ✅ Yêu cầu Python
 - **Khuyến nghị: Python 3.10 hoặc 3.11 (64-bit)**
 - **Không khuyến nghị Python 3.12** vì PyTorch CUDA (cu117/cu118) chưa hỗ trợ tốt.
 
-### Cách 1 — Virtual environment (venv + pip)
+### Cách 1 — Dùng `environment.yml` (khuyến nghị)
 
 ```bash
 # Clone repo
 git clone https://github.com/anhhoangdn/DHMT.git
 cd DHMT
 
-# Cài đặt tự động (Windows)
-.\setup.bat
+# Tạo môi trường conda
+conda env create -f environment.yml
+conda activate deca_dhmt
+
+# Cài dependencies dự án
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
-# Hoặc thủ công
-# Tạo venv bằng Python 3.10 (hoặc 3.11)
-py -3.10 -m venv venv
-.\venv\Scripts\activate
+
+### Cách 2 — Tạo môi trường thủ công (nếu cần)
+
+```bash
+conda create -n deca_dhmt python=3.10 -y
+conda activate deca_dhmt
 
 pip install --upgrade pip
 pip install -r requirements.txt
-
-### Cách 2 — Conda (khuyến nghị nếu dùng Anaconda)
-
-```bash
-conda env create -f environment.yml
-conda activate deca_dhmt
-pip install -r external/DECA/requirements.txt
 ```
 
 ---
@@ -218,10 +218,8 @@ cd external/DECA && bash fetch_data.sh && cd ../..
 # Ảnh tĩnh
 python src/preprocess/landmark_mediapipe.py --input data/samples/test.jpg --output_dir outputs/landmarks2d
 
-
 # Video
 python src/preprocess/landmark_mediapipe.py --input data/samples/test.mp4 --output_dir outputs/landmarks2d
-
 
 # Webcam (index 0)
 python src/preprocess/landmark_mediapipe.py --input 0 --output_dir outputs/landmarks2d
@@ -361,21 +359,24 @@ ls /dev/video*
 ```bash
 # 1. Clone và cài đặt nhanh
 git clone https://github.com/anhhoangdn/DHMT.git && cd DHMT
-bash setup.sh
 
-# 2. Chạy demo MediaPipe (không cần DECA weights)
+# 2. Tạo môi trường conda
+conda env create -f environment.yml
+conda activate deca_dhmt
+
+# 3. Chạy demo MediaPipe (không cần DECA weights)
 python src/preprocess/landmark_mediapipe.py \
     --input data/samples/test.jpg \
     --output_dir outputs/landmarks2d
 # → Xem kết quả: outputs/landmarks2d/test_annotated.jpg
 
-# 3. Chạy full pipeline (cần DECA weights)
+# 4. Chạy full pipeline (cần DECA weights)
 python src/pipeline/run_pipeline.py \
     --input data/samples/test.jpg \
     --output outputs \
     --device cuda
 
-# 4. Mở notebook demo
+# 5. Mở notebook demo
 jupyter notebook notebooks/01_mediapipe_landmarks.ipynb
 ```
 
