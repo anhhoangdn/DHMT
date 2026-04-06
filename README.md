@@ -11,7 +11,7 @@
 **DECA_DHMT** là đồ án môn học **Đồ Họa Máy Tính** (DHMT), thực hiện pipeline tái tạo khuôn mặt 3D từ ảnh/video 2D bằng cách kết hợp:
 
 - **MediaPipe Face Mesh** – phát hiện 468 face landmarks 2D/3D tốc độ cao, chạy trên CPU.
-- **DECA** (Detailed Expression Capture and Animation) – mô hình học sâu tái tạo hình dạng 3D chi tiết (shape, pose, expression, texture) từ ảnh đơn lẻ, dựa trên FLAME 3D face model.
+- **DECA** (Detailed Expression Capture and Animation) – mô hình học sâu tái tạo hình dạng 3D chi tiết (shape, pose, expression, texture) từ ảnh đơn lẻ, dựa trên FLAME 3D Face Model.
 
 Đề tài minh họa toàn bộ quy trình từ ảnh đầu vào đến mesh 3D có texture, phục vụ nghiên cứu và demo thực tế.
 
@@ -146,6 +146,10 @@ DECA_DHMT/
 
 ## ⚙️ Cài đặt
 
+### ✅ Yêu cầu Python
+- **Khuyến nghị: Python 3.10 hoặc 3.11 (64-bit)**
+- **Không khuyến nghị Python 3.12** vì PyTorch CUDA (cu117/cu118) chưa hỗ trợ tốt.
+
 ### Cách 1 — Virtual environment (venv + pip)
 
 ```bash
@@ -153,14 +157,26 @@ DECA_DHMT/
 git clone https://github.com/anhhoangdn/DHMT.git
 cd DHMT
 
-# Cài đặt tự động
+# Cài đặt tự động (Windows)
 .\setup.bat
+```
 
+```bash
 # Hoặc thủ công:
-python3 -m venv venv
+python -m venv venv
 .\venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+### Cách 2 — Conda (khuyến nghị nếu dùng Anaconda)
+
+```bash
+conda env create -f environment.yml
+conda activate deca_dhmt
+pip install -r external/DECA/requirements.txt
+```
+
 ---
 
 ## 🔗 Thiết lập DECA Submodule
@@ -170,7 +186,7 @@ pip install -r requirements.txt
 git submodule add https://github.com/yfeng95/DECA.git external/DECA
 git submodule update --init --recursive
 
-# Cài đặt dependencies của DECA
+# Cài đặt dependencies của DECA (có chumpy)
 pip install -r external/DECA/requirements.txt
 ```
 
@@ -181,12 +197,14 @@ pip install -r external/DECA/requirements.txt
 ```bash
 # Xem hướng dẫn tải weights
 bash scripts/download_weights.sh
+```
 
-# Hoặc tải thủ công:
-# 1. Truy cập: https://drive.google.com/drive/folders/1h3g4_stMJLJAz_lpRbhCoElDCL5HRfVK
-# 2. Tải file: deca_model.tar
-# 3. Đặt vào: external/DECA/data/deca_model.tar
+Hoặc tải thủ công:
+1. Truy cập: https://drive.google.com/drive/folders/1h3g4_stMJLJAz_lpRbhCoElDCL5HRfVK
+2. Tải file: `deca_model.tar`
+3. Đặt vào: `external/DECA/data/deca_model.tar`
 
+```bash
 # Dùng fetch_data.sh của DECA:
 cd external/DECA && bash fetch_data.sh && cd ../..
 ```
@@ -343,7 +361,7 @@ ls /dev/video*
 
 ```bash
 # 1. Clone và cài đặt nhanh
-git clone https://github.com/anhhoangdn/DECA_DHMT.git && cd DECA_DHMT
+git clone https://github.com/anhhoangdn/DHMT.git && cd DHMT
 bash setup.sh
 
 # 2. Chạy demo MediaPipe (không cần DECA weights)
