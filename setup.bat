@@ -2,26 +2,26 @@
 setlocal
 
 echo [setup.bat] Tao virtual environment...
-python -m venv venv
+python -m venv venv || exit /b 1
 
 echo [setup.bat] Kich hoat virtual environment...
-call venv\Scripts\activate
+call venv\Scripts\activate || exit /b 1
 
 echo [setup.bat] Cai dat dependencies...
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip || exit /b 1
+pip install -r requirements.txt || exit /b 1
 
 echo [setup.bat] Tao thu muc outputs...
-mkdir outputs\landmarks2d
-mkdir outputs\meshes
-mkdir outputs\textures
-mkdir outputs\renders
-mkdir outputs\videos
+if not exist outputs\landmarks2d mkdir outputs\landmarks2d
+if not exist outputs\meshes      mkdir outputs\meshes
+if not exist outputs\textures    mkdir outputs\textures
+if not exist outputs\renders     mkdir outputs\renders
+if not exist outputs\videos      mkdir outputs\videos
 
-mkdir reports\figures
-mkdir reports\tables
+if not exist reports\figures mkdir reports\figures
+if not exist reports\tables  mkdir reports\tables
 
-mkdir checkpoints
+if not exist checkpoints mkdir checkpoints
 
 echo.
 echo ✅ Cai dat hoan tat!
