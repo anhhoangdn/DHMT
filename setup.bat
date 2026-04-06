@@ -1,6 +1,17 @@
 @echo off
 setlocal
 
+:: Check Python version (require 3.10 or 3.11)
+python - <<PY
+import sys
+v = sys.version_info
+if not (v.major == 3 and v.minor in (10,11)):
+    print(f"[setup.bat] ERROR: Python {v.major}.{v.minor} detected. Please use Python 3.10 or 3.11.")
+    sys.exit(1)
+print(f"[setup.bat] Python {v.major}.{v.minor} OK")
+PY
+if errorlevel 1 exit /b 1
+
 echo [setup.bat] Tao virtual environment...
 python -m venv venv || exit /b 1
 
