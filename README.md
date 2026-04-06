@@ -160,14 +160,13 @@ cd DHMT
 # Cài đặt tự động (Windows)
 .\setup.bat
 ```
-
-```bash
-# Hoặc thủ công:
-python -m venv venv
+# Hoặc thủ công
+# Tạo venv bằng Python 3.10 (hoặc 3.11)
+py -3.10 -m venv venv
 .\venv\Scripts\activate
+
 pip install --upgrade pip
 pip install -r requirements.txt
-```
 
 ### Cách 2 — Conda (khuyến nghị nếu dùng Anaconda)
 
