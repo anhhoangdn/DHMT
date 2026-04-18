@@ -147,7 +147,7 @@ DECA_DHMT/
 ## ⚙️ Cài đặt (Conda)
 
 ### ✅ Yêu cầu Python
-- **Khuyến nghị: Python 3.10 hoặc 3.11 (64-bit)**
+- **Khuyến nghị: Python 3.9 (64-bit)**
 - **Không khuyến nghị Python 3.12** vì PyTorch CUDA (cu117/cu118) chưa hỗ trợ tốt.
 
 ### Cách 1 — Dùng `environment.yml` (khuyến nghị)
@@ -169,7 +169,7 @@ pip install -r requirements.txt
 ### Cách 2 — Tạo môi trường thủ công (nếu cần)
 
 ```bash
-conda create -n deca_dhmt python=3.10 -y
+conda create -n deca_dhmt python=3.9 -y
 conda activate deca_dhmt
 
 pip install --upgrade pip
