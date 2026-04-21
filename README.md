@@ -173,8 +173,6 @@ python src\pipeline\run_pipeline.py --input data\samples\test.jpg --output outpu
 git submodule add https://github.com/yfeng95/DECA.git external/DECA
 git submodule update --init --recursive
 
-# Cài đặt dependencies của DECA (có chumpy)
-pip install -r external/DECA/requirements.txt
 ```
 
 ---
