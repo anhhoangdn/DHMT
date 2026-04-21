@@ -164,8 +164,6 @@ pip install trimesh pyrender imageio[ffmpeg]
 [Bước 1 & 2 là SetUp (Chỉ chạy 1 lần)]
 
 ## 🔗 Thiết lập DECA Submodule
-
-```bash
 # Thêm DECA làm submodule
 git submodule add https://github.com/yfeng95/DECA.git external/DECA
 git submodule update --init --recursive
