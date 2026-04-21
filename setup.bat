@@ -16,15 +16,12 @@ if errorlevel 1 (
     pause & exit /b 1
 )
 echo [OK] Tim thay conda.
-
-:: Lay phien ban conda de xac nhan
 for /f "tokens=*" %%v in ('conda --version 2^>^&1') do echo [OK] %%v
-
 echo.
 
 :: ── 1. Tao moi truong chinh: deca_dhmt ───────────
 echo [1/4] Tao conda environment: deca_dhmt
-echo       (MediaPipe, OpenCV moi, numpy moi...)
+echo       (MediaPipe, OpenCV, numpy moi...)
 
 conda env list | findstr /C:"deca_dhmt" >nul 2>&1
 if not errorlevel 1 (
@@ -42,7 +39,7 @@ echo.
 
 :: ── 2. Tao moi truong DECA: deca_env ─────────────
 echo [2/4] Tao conda environment: deca_env
-echo       (torch==1.6, numpy==1.18, DECA dependencies...)
+echo       (torch==1.8, numpy==1.22, DECA dependencies...)
 
 conda env list | findstr /C:"deca_env" >nul 2>&1
 if not errorlevel 1 (
@@ -58,32 +55,32 @@ if errorlevel 1 (
 echo [OK] deca_env san sang.
 echo.
 
-:: ── 3. Cai DECA requirements vao deca_env ────────
+:: ── 3. Cai DECA dependencies vao deca_env ────────
 echo [3/4] Cai DECA dependencies vao deca_env...
+echo       (Bo qua requirements.txt goc vi chua version cu khong tuong thich)
 
-if not exist external\DECA\requirements.txt (
-    echo [WARNING] Khong tim thay external\DECA\requirements.txt
-    echo           Submodule chua duoc init -- bo qua buoc nay.
-    echo           Chay sau khi init submodule:
-    echo             conda run -n deca_env pip install -r external\DECA\requirements.txt
-) else (
-    conda run -n deca_env pip install -r external\DECA\requirements.txt
-    if errorlevel 1 (
-        echo [ERROR] Cai DECA requirements that bai.
-        pause & exit /b 1
-    )
-    echo [OK] DECA requirements da cai.
+conda run -n deca_env pip install git+https://github.com/mattloper/chumpy
+if errorlevel 1 (
+    echo [WARNING] Cai chumpy that bai -- kiem tra ket noi mang.
 )
+
+conda run -n deca_env pip install scikit-image==0.19.3 PyYAML==5.4.1 face-alignment==1.3.5 yacs==0.1.8 kornia==0.5.11 ninja fvcore
+if errorlevel 1 (
+    echo [ERROR] Cai DECA dependencies that bai.
+    pause & exit /b 1
+)
+echo [OK] DECA dependencies da cai.
 echo.
 
-:: ── 4. Fix chumpy compatibility ──────────────────
-echo [4/4] Fix chumpy (tuong thich numpy 1.x)...
-conda run -n deca_env pip install ^
-    git+https://github.com/mattloper/chumpy --upgrade --quiet
+:: ── 4. Cai render tools vao deca_dhmt ────────────
+echo [4/4] Cai render tools (trimesh, pyrender, imageio)...
+
+conda run -n deca_dhmt pip install trimesh pyrender "imageio[ffmpeg]"
 if errorlevel 1 (
-    echo [WARNING] Fix chumpy that bai -- co the khong anh huong neu deca chay duoc.
+    echo [WARNING] Cai render tools that bai.
+    echo           Chay thu cong: pip install trimesh pyrender imageio[ffmpeg]
 ) else (
-    echo [OK] chumpy da duoc fix.
+    echo [OK] Render tools da cai.
 )
 echo.
 
@@ -115,9 +112,7 @@ if not exist external\DECA\.git (
     echo.
     echo Chay cac lenh sau de hoan tat cai dat:
     echo.
-    echo   git submodule add https://github.com/yfeng95/DECA.git external/DECA
     echo   git submodule update --init --recursive
-    echo   conda run -n deca_env pip install -r external\DECA\requirements.txt
     echo   scripts\download_weights.bat
 ) else (
     echo [OK] DECA submodule da co tai: external\DECA
@@ -130,8 +125,8 @@ echo  Cai dat hoan tat!
 echo ================================================
 echo.
 echo Cac moi truong da tao:
-echo   deca_dhmt  -- chay MediaPipe (Stage 1)
-echo   deca_env   -- chay DECA      (Stage 2)
+echo   deca_dhmt  -- chay MediaPipe + render (Stage 1)
+echo   deca_env   -- chay DECA              (Stage 2)
 echo.
 echo Buoc tiep theo:
 echo.
@@ -139,11 +134,14 @@ echo   1. Kich hoat moi truong chinh:
 echo      conda activate deca_dhmt
 echo.
 echo   2. Chay pipeline:
-echo      python src\pipeline\run_pipeline.py --input data\samples\face.jpg
-echo      python src\pipeline\run_pipeline.py --input data\samples\test.mp4
-echo      python src\pipeline\run_pipeline.py --input 0   (webcam)
+echo      python src\pipeline\run_pipeline.py --input data\samples\face.jpg --output outputs --deca_root external\DECA --device cpu
+echo      python src\pipeline\run_pipeline.py --input data\samples\test.mp4 --output outputs --deca_root external\DECA --device cpu
+echo      python src\pipeline\run_pipeline.py --input 0 --output outputs --deca_root external\DECA --device cpu
 echo.
-echo   3. Chi chay Stage 1 (MediaPipe):
+echo   3. Render video 360:
+echo      python scripts\render_360.py --obj outputs\deca\test\test\test_detail.obj --output outputs\videos\test_360.mp4 --frames 72
+echo.
+echo   4. Chi chay Stage 1 (MediaPipe):
 echo      python src\pipeline\run_pipeline.py --input data\samples\face.jpg --skip_deca
 echo.
 echo ================================================
