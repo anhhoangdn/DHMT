@@ -156,15 +156,12 @@ cd DHMT
 Lệnh chạy 
 Bước 1 — Cài đặt (chỉ 1 lần)
 setup.bat
+
 Bước 2 — Cài render tool (chỉ 1 lần)
 conda activate deca_dhmt
 pip install trimesh pyrender imageio[ffmpeg]
 
 [Bước 1 & 2 là SetUp (Chỉ chạy 1 lần)]
-
-Bước 3 — Chạy pipeline
-conda activate deca_dhmt
-python src\pipeline\run_pipeline.py --input data\samples\test.jpg --output outputs --deca_root external\DECA --device cpu
 
 ## 🔗 Thiết lập DECA Submodule
 
@@ -197,6 +194,9 @@ cd external/DECA && bash fetch_data.sh && cd ../..
 ---
 
 ## 🚀 Cách chạy
+
+conda activate deca_dhmt
+python src\pipeline\run_pipeline.py --input data\samples\test.jpg --output outputs --deca_root external\DECA --device cpu
 
 ### Landmark Only (MediaPipe)
 
