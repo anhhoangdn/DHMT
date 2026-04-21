@@ -147,36 +147,24 @@ DECA_DHMT/
 ## ⚙️ Cài đặt (Conda)
 
 ### ✅ Yêu cầu Python
-- **Khuyến nghị: Python 3.9 (64-bit)**
-- **Không khuyến nghị Python 3.12** vì PyTorch CUDA (cu117/cu118) chưa hỗ trợ tốt.
-
-### Cách 1 — Dùng `environment.yml` (khuyến nghị)
 
 ```bash
 # Clone repo
 git clone https://github.com/anhhoangdn/DHMT.git
 cd DHMT
 
-# Tạo môi trường conda
-conda env create -f environment.yml
+Lệnh chạy 
+Bước 1 — Cài đặt (chỉ 1 lần)
+setup.bat
+Bước 2 — Cài render tool (chỉ 1 lần)
 conda activate deca_dhmt
+pip install trimesh pyrender imageio[ffmpeg]
 
-# Cài dependencies dự án
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+[Bước 1 & 2 là SetUp (Chỉ chạy 1 lần)]
 
-### Cách 2 — Tạo môi trường thủ công (nếu cần)
-
-```bash
-conda create -n deca_dhmt python=3.9 -y
+Bước 3 — Chạy pipeline
 conda activate deca_dhmt
-
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
----
+python src\pipeline\run_pipeline.py --input data\samples\test.jpg --output outputs --deca_root external\DECA --device cpu
 
 ## 🔗 Thiết lập DECA Submodule
 
