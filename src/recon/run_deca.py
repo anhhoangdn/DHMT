@@ -1,34 +1,39 @@
 """
-Wrapper cho DECA inference.
-Gọi DECA qua subprocess, KHÔNG tái cài đặt DECA internals.
+DECA inference wrapper — chạy độc lập trong môi trường deca_env.
 
-Sử dụng:
-    python src/recon/run_deca.py --input <input> --output <output_dir> --deca-root external/DECA
+Được gọi bởi src/pipeline/run_pipeline.py qua subprocess:
+    conda run -n deca_env python src/recon/run_deca.py \
+        --landmarks_dir outputs/landmarks2d \
+        --output_dir    outputs \
+        --deca_root     external/DECA \
+        --device        cuda
 
-Yêu cầu:
-    - DECA đã được cài đặt tại --deca-root (submodule init)
-    - Pretrained weights đã tải về checkpoints/ của DECA
-    - DECA dependencies đã được cài: pip install -r external/DECA/requirements.txt
+KHÔNG import bất kỳ thứ gì từ src/ (tránh cross-env dependency).
+Giao tiếp với Stage 1 qua file JSON trong --landmarks_dir.
 """
 from __future__ import annotations
 
 import argparse
+import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
-# Thêm thư mục gốc vào PYTHONPATH
-_ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+# ---------------------------------------------------------------------------
+# Logger tự định nghĩa — KHÔNG import từ src.utils để tránh cross-env
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-from src.utils.logger import get_logger
-from src.utils.io import ensure_dir
 
-logger = get_logger(__name__)
-
-# Các script DECA có thể có (thứ tự ưu tiên)
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 DECA_DEMO_SCRIPTS = [
     "demos/demo_reconstruct.py",
     "demo.py",
@@ -36,44 +41,47 @@ DECA_DEMO_SCRIPTS = [
     "demo_reconstruct.py",
 ]
 
-# Tên file/thư mục để xác nhận DECA hợp lệ
-DECA_REQUIRED_FILES = [
-    "decalib",
-    "README.md",
+DECA_WEIGHT_CANDIDATES = [
+    "data/deca_model.tar",
+    "data/generic_model.pkl",
+    "checkpoints/deca_model.tar",
 ]
 
 
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Wrapper cho DECA 3D face reconstruction",
+        description="DECA 3D face reconstruction — chạy trong deca_env",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--input",
+        "--landmarks_dir",
+        type=Path,
         required=True,
-        help="Đường dẫn ảnh hoặc thư mục ảnh đầu vào",
+        help="Thư mục chứa JSON landmarks từ Stage 1 (outputs/landmarks2d/)",
     )
     parser.add_argument(
-        "--output",
+        "--output_dir",
         type=Path,
         default=Path("outputs"),
-        help="Thư mục lưu kết quả DECA",
+        help="Thư mục gốc lưu kết quả (meshes/, textures/, renders/)",
     )
     parser.add_argument(
-        "--deca-root",
+        "--deca_root",
         type=Path,
         default=Path("external/DECA"),
-        dest="deca_root",
-        help="Đường dẫn tới thư mục DECA (submodule)",
+        help="Đường dẫn tới DECA submodule",
     )
     parser.add_argument(
         "--device",
         default="cuda",
         choices=["cuda", "cpu"],
-        help="Thiết bị chạy inference (cuda hoặc cpu)",
+        help="Thiết bị chạy inference",
     )
     parser.add_argument(
-        "--save-obj",
+        "--save_obj",
         action="store_true",
         default=True,
         help="Lưu file .obj mesh",
@@ -81,182 +89,209 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def validate_deca_installation(deca_root: Path) -> Optional[Path]:
-    """
-    Kiểm tra DECA có tồn tại và hợp lệ không.
-
-    Args:
-        deca_root: Thư mục DECA.
-
-    Returns:
-        Đường dẫn script demo nếu tìm thấy, None nếu không.
-    """
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
+def _validate_deca(deca_root: Path) -> Optional[Path]:
+    """Kiểm tra DECA tồn tại và trả về đường dẫn demo script."""
     if not deca_root.exists():
-        logger.error(f"❌ Không tìm thấy thư mục DECA: {deca_root}")
-        logger.error("")
-        logger.error("Để thiết lập DECA, chạy các lệnh sau:")
-        logger.error("  git submodule add https://github.com/yfeng95/DECA.git external/DECA")
-        logger.error("  git submodule update --init --recursive")
-        logger.error("  pip install -r external/DECA/requirements.txt")
-        logger.error("  bash scripts/download_weights.sh")
+        logger.error(f"Không tìm thấy DECA: {deca_root}")
+        logger.error("Chạy: git submodule update --init --recursive")
         return None
 
-    # Kiểm tra các file cần thiết
-    for required in DECA_REQUIRED_FILES:
-        if not (deca_root / required).exists():
-            logger.warning(f"⚠️  Thiếu file/thư mục trong DECA: {required}")
-            logger.warning("DECA submodule có thể chưa được khởi tạo đúng cách.")
-            logger.warning("Chạy: git submodule update --init --recursive")
+    if not (deca_root / "decalib").exists():
+        logger.error("Thiếu thư mục decalib/ — submodule chưa init đúng.")
+        logger.error("Chạy: git submodule update --init --recursive")
+        return None
 
-    # Tìm script demo
-    demo_script: Optional[Path] = None
     for script_rel in DECA_DEMO_SCRIPTS:
         candidate = deca_root / script_rel
         if candidate.exists():
-            demo_script = candidate
-            logger.info(f"✅ Tìm thấy DECA demo script: {demo_script}")
-            break
+            logger.info(f"Tìm thấy DECA script: {candidate}")
+            return candidate
 
-    if demo_script is None:
-        logger.error("❌ Không tìm thấy script demo của DECA.")
-        logger.error(f"Đã tìm kiếm trong: {[str(deca_root / s) for s in DECA_DEMO_SCRIPTS]}")
-        logger.error("")
-        logger.error("Kiểm tra lại submodule:")
-        logger.error("  git submodule update --init --recursive")
-        logger.error("  ls external/DECA/demos/")
-        return None
-
-    return demo_script
+    logger.error("Không tìm thấy demo script trong DECA.")
+    logger.error(f"Đã tìm: {[str(deca_root / s) for s in DECA_DEMO_SCRIPTS]}")
+    return None
 
 
-def check_deca_weights(deca_root: Path) -> bool:
-    """
-    Kiểm tra pretrained weights của DECA.
-
-    Args:
-        deca_root: Thư mục DECA.
-
-    Returns:
-        True nếu weights tồn tại.
-    """
-    weight_candidates = [
-        deca_root / "data" / "deca_model.tar",
-        deca_root / "data" / "generic_model.pkl",
-        deca_root / "checkpoints" / "deca_model.tar",
-    ]
-    for w in weight_candidates:
-        if w.exists():
-            logger.info(f"✅ Tìm thấy DECA weights: {w}")
+def _check_weights(deca_root: Path) -> bool:
+    """Kiểm tra pretrained weights có tồn tại không."""
+    for rel in DECA_WEIGHT_CANDIDATES:
+        if (deca_root / rel).exists():
+            logger.info(f"Tìm thấy weights: {deca_root / rel}")
             return True
-
-    logger.warning("⚠️  Không tìm thấy DECA pretrained weights!")
-    logger.warning("Tải weights theo hướng dẫn trong scripts/download_weights.sh")
-    logger.warning("hoặc xem: https://github.com/yfeng95/DECA#getting-started")
+    logger.warning("Không tìm thấy DECA weights!")
+    logger.warning("Chạy: bash scripts/download_weights.sh")
     return False
 
 
-def run_deca(
-    input_path: Path,
+# ---------------------------------------------------------------------------
+# Đọc JSON landmarks từ Stage 1
+# ---------------------------------------------------------------------------
+def _load_image_paths_from_landmarks(landmarks_dir: Path) -> list[str]:
+    """
+    Đọc JSON landmarks từ Stage 1.
+    Format: {"source": "...", "faces": [...]}
+    """
+    json_files = sorted(landmarks_dir.glob("*_landmarks.json"))
+
+    if not json_files:
+        logger.error(f"Không có file *_landmarks.json trong: {landmarks_dir}")
+        logger.error("Stage 1 (MediaPipe) chưa chạy hoặc sai --landmarks_dir.")
+        return []
+
+    image_paths = []
+    for jf in json_files:
+        try:
+            with open(jf) as f:
+                data = json.load(f)
+
+            # ── Đọc đúng key "source" từ landmark_mediapipe.py ──
+            img_path = data.get("source", "")
+            if not img_path:
+                logger.warning(f"JSON thiếu key 'source': {jf.name}")
+                continue
+
+            # Bỏ qua JSON của video (có key "frames") — chỉ lấy ảnh tĩnh
+            if "frames" in data:
+                logger.info(f"  Bỏ qua (video JSON): {jf.name}")
+                continue
+
+            # Kiểm tra có detect được mặt không
+            faces = data.get("faces", [])
+            if not faces:
+                logger.warning(f"  Không có khuôn mặt trong: {jf.name}")
+                continue
+
+            if not Path(img_path).exists():
+                logger.warning(f"  Ảnh gốc không tồn tại: {img_path}")
+                continue
+
+            image_paths.append(img_path)
+            logger.info(f"  Đọc OK: {jf.name} → {img_path} ({len(faces)} mặt)")
+
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning(f"Lỗi đọc {jf.name}: {e}")
+
+    logger.info(f"Tổng ảnh cần xử lý: {len(image_paths)}")
+    return image_paths
+
+
+# ---------------------------------------------------------------------------
+# Chạy DECA cho từng ảnh
+# ---------------------------------------------------------------------------
+def _run_deca_single(
+    image_path: str,
     output_dir: Path,
     deca_root: Path,
     demo_script: Path,
-    device: str = "cuda",
-    save_obj: bool = True,
+    device: str,
+    save_obj: bool,
 ) -> int:
-    """
-    Chạy DECA inference thông qua subprocess.
+    """Gọi DECA demo script cho 1 ảnh qua subprocess."""
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    Args:
-        input_path: Ảnh hoặc thư mục ảnh đầu vào.
-        output_dir: Thư mục lưu kết quả.
-        deca_root: Thư mục gốc của DECA.
-        demo_script: Đường dẫn tới script demo.
-        device: 'cuda' hoặc 'cpu'.
-        save_obj: Lưu file .obj không.
+    # ── THÊM DÒNG NÀY: đổi sang absolute path ──
+    image_path_abs = str(Path(image_path).resolve())
 
-    Returns:
-        Return code của process (0 = thành công).
-    """
-    ensure_dir(output_dir)
-
-    cmd: List[str] = [
+    cmd = [
         sys.executable,
         str(demo_script),
-        "--inputpath", str(input_path),
+        "--inputpath", image_path_abs,   # ← dùng absolute path
         "--savefolder", str(output_dir),
         "--device", device,
     ]
     if save_obj:
-        cmd.extend(["--saveObj", "True"])
+        cmd += ["--saveObj", "True"]
 
-    logger.info(f"Chạy DECA: {' '.join(cmd)}")
-    logger.info(f"Thư mục làm việc: {deca_root}")
+    logger.info(f"Chạy: {' '.join(cmd)}")
 
     try:
         result = subprocess.run(
             cmd,
             cwd=str(deca_root),
-            capture_output=False,
             text=True,
         )
+        return result.returncode
     except FileNotFoundError as e:
-        logger.error(f"❌ Lỗi khi chạy DECA: {e}")
-        logger.error("Đảm bảo Python interpreter và DECA dependencies đã được cài đặt.")
+        logger.error(f"Lỗi FileNotFoundError: {e}")
         return 1
     except Exception as e:
-        logger.error(f"❌ Lỗi không mong đợi: {e}")
+        logger.error(f"Lỗi không mong đợi: {e}")
         return 1
 
-    if result.returncode != 0:
-        logger.error(f"❌ DECA thất bại với return code: {result.returncode}")
-        logger.error("Kiểm tra:")
-        logger.error("  1. DECA weights đã được tải về chưa?")
-        logger.error("  2. DECA dependencies đã cài chưa? (pip install -r external/DECA/requirements.txt)")
-        logger.error("  3. CUDA/PyTorch có tương thích không?")
-    else:
-        logger.info(f"✅ DECA hoàn thành! Kết quả lưu tại: {output_dir}")
 
-    return result.returncode
-
-
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 def main() -> None:
     args = _parse_args()
 
-    deca_root = args.deca_root.resolve()
-    input_path = Path(args.input).resolve()
-    output_dir = args.output.resolve()
+    landmarks_dir = args.landmarks_dir.resolve()
+    output_dir    = args.output_dir.resolve()
+    deca_root     = args.deca_root.resolve()
 
-    logger.info("=" * 60)
-    logger.info("DECA 3D Face Reconstruction - DECA_DHMT")
-    logger.info("=" * 60)
-    logger.info(f"Input: {input_path}")
-    logger.info(f"Output: {output_dir}")
-    logger.info(f"DECA root: {deca_root}")
-    logger.info(f"Device: {args.device}")
+    logger.info("=" * 55)
+    logger.info("Stage 2 — DECA 3D Reconstruction (deca_env)")
+    logger.info("=" * 55)
+    logger.info(f"landmarks_dir : {landmarks_dir}")
+    logger.info(f"output_dir    : {output_dir}")
+    logger.info(f"deca_root     : {deca_root}")
+    logger.info(f"device        : {args.device}")
 
-    if not input_path.exists():
-        logger.error(f"❌ File/thư mục đầu vào không tồn tại: {input_path}")
-        sys.exit(1)
-
-    demo_script = validate_deca_installation(deca_root)
+    # 1. Validate DECA
+    demo_script = _validate_deca(deca_root)
     if demo_script is None:
         sys.exit(1)
 
-    check_deca_weights(deca_root)
+    # 2. Kiểm tra weights (warning only, không exit)
+    _check_weights(deca_root)
 
-    deca_output_dir = output_dir / "deca"
-    ensure_dir(deca_output_dir)
+    # 3. Đọc danh sách ảnh từ JSON landmarks Stage 1
+    image_paths = _load_image_paths_from_landmarks(landmarks_dir)
+    if not image_paths:
+        sys.exit(1)
 
-    return_code = run_deca(
-        input_path=input_path,
-        output_dir=deca_output_dir,
-        deca_root=deca_root,
-        demo_script=demo_script,
-        device=args.device,
-        save_obj=args.save_obj,
-    )
+    # 4. Chạy DECA cho từng ảnh
+    deca_out = output_dir / "deca"   # DECA tự tạo cấu trúc con bên trong
+    failed   = []
 
-    sys.exit(return_code)
+    for img_path in image_paths:
+        basename = Path(img_path).stem
+        logger.info(f"\nXử lý: {basename}")
+
+        rc = _run_deca_single(
+            image_path  = img_path,
+            output_dir  = deca_out / basename,
+            deca_root   = deca_root,
+            demo_script = demo_script,
+            device      = args.device,
+            save_obj    = args.save_obj,
+        )
+
+        if rc != 0:
+            logger.error(f"DECA thất bại: {basename} (code {rc})")
+            failed.append(basename)
+        else:
+            logger.info(f"✓ {basename} → {deca_out / basename}")
+
+    # 5. Tổng kết
+    logger.info("\n" + "=" * 55)
+    total   = len(image_paths)
+    success = total - len(failed)
+    logger.info(f"Kết quả: {success}/{total} ảnh thành công")
+
+    if failed:
+        logger.warning(f"Thất bại: {failed}")
+        logger.warning("Kiểm tra:")
+        logger.warning("  1. DECA weights đã tải chưa?  → bash scripts/download_weights.sh")
+        logger.warning("  2. DECA deps đã cài chưa?     → pip install -r external/DECA/requirements.txt")
+        logger.warning("  3. CUDA/PyTorch tương thích?  → torch==1.8.0 + cudatoolkit=10.2")
+        sys.exit(1)
+
+    logger.info(f"Kết quả lưu tại: {deca_out}")
+    sys.exit(0)
 
 
 if __name__ == "__main__":

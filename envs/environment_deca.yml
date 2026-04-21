@@ -1,0 +1,24 @@
+name: deca_env
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - cudatoolkit=10.2
+  - pip
+  - pip:
+      - torch==1.8.0
+      - torchvision==0.9.0
+      - numpy==1.22.4 # ← đổi: <1.23.0 và >=1.16.5
+      - scipy==1.7.3
+      - opencv-python==4.5.5.64
+      - scikit-image==0.19.3
+      - PyYAML==5.4.1
+      - face-alignment
+      - yacs==0.1.8
+      - kornia==0.5.11
+      - ninja
+      - fvcore
+      - chumpy
+      - Pillow>=8.0.0

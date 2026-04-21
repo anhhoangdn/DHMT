@@ -47,10 +47,10 @@ data/processed/
 checkpoints/
 
 # ==============================================================================
-# DECA submodule (tracked separately via .gitmodules)
+# DECA submodule — tracked via .gitmodules, không push code DECA
 # ==============================================================================
-external/*
-!external/DECA
+external/DECA/
+
 # ==============================================================================
 # Model weights & large binary files
 # ==============================================================================

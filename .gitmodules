@@ -1,0 +1,3 @@
+[submodule "external/DECA"]
+	path = external/DECA
+	url = https://github.com/yfeng95/DECA.git
