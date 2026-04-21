@@ -193,8 +193,10 @@ cd external/DECA && bash fetch_data.sh && cd ../..
 
 ## 🚀 Cách chạy
 
+```bash
 conda activate deca_dhmt
 python src\pipeline\run_pipeline.py --input data\samples\test.jpg --output outputs --deca_root external\DECA --device cpu
+```
 
 ### Landmark Only (MediaPipe)
 
