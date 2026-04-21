@@ -196,6 +196,9 @@ cd external/DECA && bash fetch_data.sh && cd ../..
 ```bash
 conda activate deca_dhmt
 python src\pipeline\run_pipeline.py --input data\samples\test.jpg --output outputs --deca_root external\DECA --device cpu
+
+# Render video 360°
+python scripts\render_360.py --obj outputs\deca\test\test\test_detail.obj --output outputs\videos\test_360.mp4 --frames 72
 ```
 
 ### Landmark Only (MediaPipe)
