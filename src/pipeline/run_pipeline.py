@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 # Thêm project root vào PYTHONPATH
 _ROOT = Path(__file__).resolve().parents[2]
@@ -70,6 +71,50 @@ def _parse_args() -> argparse.Namespace:
         help="Thiết bị chạy DECA",
     )
     parser.add_argument(
+        "--max_num_faces",
+        type=int,
+        default=1,
+        help="Số khuôn mặt tối đa cho MediaPipe",
+    )
+    parser.add_argument(
+        "--max_image_size",
+        type=int,
+        default=None,
+        help="Giới hạn cạnh lớn nhất trước khi chạy MediaPipe (vd: 1024).",
+    )
+    parser.add_argument(
+        "--frame_stride",
+        type=int,
+        default=1,
+        help="Chỉ xử lý mỗi N frame (video) để giảm tải.",
+    )
+    parser.add_argument(
+        "--no_annotate",
+        action="store_true",
+        help="Không vẽ/ghi ảnh hoặc video annotate.",
+    )
+    parser.add_argument(
+        "--no_json",
+        action="store_true",
+        help="Không ghi JSON landmarks (giảm I/O).",
+    )
+    parser.add_argument(
+        "--deca_batch_size",
+        type=int,
+        default=1,
+        help="Số ảnh chạy mỗi lần gọi DECA demo (batch).",
+    )
+    parser.add_argument(
+        "--no_save_obj",
+        action="store_true",
+        help="Không lưu mesh .obj từ DECA.",
+    )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Bật chế độ nhanh (giảm output và resize).",
+    )
+    parser.add_argument(
         "--skip_deca",
         action="store_true",
         help="Bỏ qua Stage 2 — chỉ chạy MediaPipe landmarks",
@@ -95,6 +140,11 @@ def _run_stage1(
     landmark_dir: Path,
     min_detection_confidence: float,
     min_tracking_confidence: float,
+    max_num_faces: int,
+    max_image_size: Optional[int],
+    save_annotated: bool,
+    save_json_output: bool,
+    frame_stride: int,
 ) -> bool:
     """Phát hiện landmarks bằng MediaPipe, lưu JSON vào landmark_dir."""
     logger.info("━" * 55)
@@ -113,6 +163,11 @@ def _run_stage1(
             min_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
             is_webcam=True,
+            max_num_faces=max_num_faces,
+            max_image_size=max_image_size,
+            save_annotated=save_annotated,
+            save_json_output=save_json_output,
+            frame_stride=frame_stride,
         )
     except ValueError:
         pass
@@ -132,6 +187,10 @@ def _run_stage1(
             input_path=input_path,
             output_dir=landmark_dir,
             min_detection_confidence=min_detection_confidence,
+            max_num_faces=max_num_faces,
+            max_image_size=max_image_size,
+            save_annotated=save_annotated,
+            save_json_output=save_json_output,
         )
     elif ext in video_exts:
         logger.info(f"  Mode : Video — {input_path.name}")
@@ -141,6 +200,11 @@ def _run_stage1(
             min_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence,
             is_webcam=False,
+            max_num_faces=max_num_faces,
+            max_image_size=max_image_size,
+            save_annotated=save_annotated,
+            save_json_output=save_json_output,
+            frame_stride=frame_stride,
         )
     else:
         logger.error(f"  Định dạng không hỗ trợ: {ext}")
@@ -156,10 +220,12 @@ def _build_deca_cmd(
     output_dir: Path,
     deca_root: Path,
     device: str,
+    batch_size: int,
+    save_obj: bool,
 ) -> list[str]:
     """Tạo lệnh conda run để gọi run_deca.py trong deca_env."""
     deca_script = str(_ROOT / "src" / "recon" / "run_deca.py")
-    return [
+    cmd = [
         "conda", "run", "--no-capture-output",
         "-n", deca_env,
         "python", deca_script,
@@ -168,6 +234,11 @@ def _build_deca_cmd(
         "--deca_root",     str(deca_root),
         "--device",        device,
     ]
+    if batch_size > 1:
+        cmd += ["--batch_size", str(batch_size)]
+    if not save_obj:
+        cmd += ["--no_save_obj"]
+    return cmd
 
 
 def _run_stage2(
@@ -177,6 +248,8 @@ def _run_stage2(
     deca_env: str,
     device: str,
     input_str: str,
+    batch_size: int,
+    save_obj: bool,
 ) -> bool:
     """Gọi DECA qua subprocess trong deca_env."""
     logger.info("━" * 55)
@@ -207,6 +280,8 @@ def _run_stage2(
         output_dir    = output_dir,
         deca_root     = deca_root,
         device        = device,
+        batch_size    = batch_size,
+        save_obj      = save_obj,
     )
 
     logger.info(f"  CMD: {' '.join(cmd)}")
@@ -243,6 +318,24 @@ def main() -> None:
     deca_root  = args.deca_root.resolve()
 
     landmark_dir = output_dir / "landmarks2d"
+    save_annotated = not args.no_annotate
+    save_json_output = not args.no_json
+    save_obj = not args.no_save_obj
+    max_image_size = args.max_image_size
+    frame_stride = args.frame_stride
+    batch_size = max(1, int(args.deca_batch_size))
+
+    if args.fast:
+        if max_image_size is None:
+            max_image_size = 1024
+        if frame_stride == 1:
+            frame_stride = 2
+        if save_annotated:
+            save_annotated = False
+        if save_obj:
+            save_obj = False
+        if batch_size == 1:
+            batch_size = 4
 
     # Tạo trước tất cả thư mục output
     for d in [landmark_dir,
@@ -261,6 +354,13 @@ def main() -> None:
     logger.info(f"DECA env   : {args.deca_env}")
     logger.info(f"Device     : {args.device}")
     logger.info(f"Skip DECA  : {args.skip_deca}")
+    logger.info(f"Max faces  : {args.max_num_faces}")
+    logger.info(f"Max size   : {max_image_size}")
+    logger.info(f"Stride     : {frame_stride}")
+    logger.info(f"Annotate   : {save_annotated}")
+    logger.info(f"Save JSON  : {save_json_output}")
+    logger.info(f"DECA batch : {batch_size}")
+    logger.info(f"Save OBJ   : {save_obj}")
     logger.info("=" * 55)
 
     pipeline_start = time.time()
@@ -272,6 +372,11 @@ def main() -> None:
         landmark_dir             = landmark_dir,
         min_detection_confidence = args.min_detection_confidence,
         min_tracking_confidence  = args.min_tracking_confidence,
+        max_num_faces            = args.max_num_faces,
+        max_image_size           = max_image_size,
+        save_annotated           = save_annotated,
+        save_json_output         = save_json_output,
+        frame_stride             = frame_stride,
     )
     t1 = time.time() - t0
 
@@ -285,6 +390,9 @@ def main() -> None:
     if args.skip_deca:
         logger.info("⏭️  Stage 2 bị bỏ qua (--skip_deca).")
     else:
+        if not save_json_output:
+            logger.error("Stage 2 cần JSON landmarks. Bỏ --no_json hoặc dùng --skip_deca.")
+            sys.exit(1)
         t0 = time.time()
         stage2_ok = _run_stage2(
             landmark_dir = landmark_dir,
@@ -293,6 +401,8 @@ def main() -> None:
             deca_env     = args.deca_env,
             device       = args.device,
             input_str    = args.input,
+            batch_size   = batch_size,
+            save_obj     = save_obj,
         )
         t2 = time.time() - t0
 

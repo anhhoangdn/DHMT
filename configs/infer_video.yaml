@@ -5,11 +5,17 @@ mediapipe:
   max_num_faces: 1
   min_detection_confidence: 0.5
   min_tracking_confidence: 0.5
+  max_image_size: null
+  frame_stride: 1
+  save_annotated: true
+  save_json: true
 deca:
   device: "cuda"
   save_mesh: false
   save_texture: false
   save_rendered_image: true
+  batch_size: 1
+  save_obj: false
 video:
   fps_output: 30
   codec: "mp4v"

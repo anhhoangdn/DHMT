@@ -19,7 +19,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import mediapipe as mp
@@ -74,6 +74,28 @@ def _parse_args() -> argparse.Namespace:
         default=1,
         help="Số khuôn mặt tối đa cần detect",
     )
+    parser.add_argument(
+        "--max_image_size",
+        type=int,
+        default=None,
+        help="Giới hạn cạnh lớn nhất trước khi chạy MediaPipe (vd: 1024).",
+    )
+    parser.add_argument(
+        "--frame_stride",
+        type=int,
+        default=1,
+        help="Chỉ xử lý mỗi N frame (video/webcam) để giảm tải.",
+    )
+    parser.add_argument(
+        "--no_annotate",
+        action="store_true",
+        help="Không vẽ/ghi ảnh hoặc video annotate.",
+    )
+    parser.add_argument(
+        "--no_json",
+        action="store_true",
+        help="Không ghi JSON landmarks (giảm I/O).",
+    )
     return parser.parse_args()
 
 
@@ -90,6 +112,39 @@ def landmarks_to_dict(face_landmarks, image_width: int, image_height: int) -> Di
             "y_px": int(lm.y * image_height),
         })
     return {"landmarks": points, "num_landmarks": len(points)}
+
+
+def _resize_if_needed(
+    image: np.ndarray,
+    max_image_size: Optional[int],
+) -> Tuple[np.ndarray, float]:
+    if not max_image_size or max_image_size <= 0:
+        return image, 1.0
+    h, w = image.shape[:2]
+    max_dim = max(h, w)
+    if max_dim <= max_image_size:
+        return image, 1.0
+    scale = max_image_size / float(max_dim)
+    new_w = max(1, int(w * scale))
+    new_h = max(1, int(h * scale))
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    return resized, scale
+
+
+def _resize_dims(
+    width: int,
+    height: int,
+    max_image_size: Optional[int],
+) -> Tuple[int, int, float]:
+    if not max_image_size or max_image_size <= 0:
+        return width, height, 1.0
+    max_dim = max(width, height)
+    if max_dim <= max_image_size:
+        return width, height, 1.0
+    scale = max_image_size / float(max_dim)
+    new_w = max(1, int(width * scale))
+    new_h = max(1, int(height * scale))
+    return new_w, new_h, scale
 
 
 def draw_landmarks_on_image(image: np.ndarray, face_landmarks) -> np.ndarray:
@@ -117,6 +172,9 @@ def process_image(
     output_dir: Path,
     min_detection_confidence: float = 0.5,
     max_num_faces: int = 1,
+    max_image_size: Optional[int] = None,
+    save_annotated: bool = True,
+    save_json_output: bool = True,
 ) -> bool:
     """
     Xử lý ảnh tĩnh: phát hiện landmarks và lưu JSON + ảnh annotate.
@@ -136,9 +194,14 @@ def process_image(
         logger.error(f"Không thể đọc ảnh: {input_path}")
         return False
 
-    h, w = image_bgr.shape[:2]
+    orig_h, orig_w = image_bgr.shape[:2]
+    image_bgr, resize_scale = _resize_if_needed(image_bgr, max_image_size)
+    proc_h, proc_w = image_bgr.shape[:2]
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     stem = input_path.stem
+    logger.info(f"Kích thước ảnh gốc: {orig_w}x{orig_h}")
+    if resize_scale != 1.0:
+        logger.info(f"Resize ảnh về: {proc_w}x{proc_h} (scale={resize_scale:.3f})")
 
     with mp_face_mesh.FaceMesh(
         static_image_mode=True,
@@ -146,39 +209,50 @@ def process_image(
         refine_landmarks=True,
         min_detection_confidence=min_detection_confidence,
     ) as face_mesh:
+        t0 = time.time()
         results = face_mesh.process(image_rgb)
+        t1 = time.time() - t0
 
     if not results.multi_face_landmarks:
         logger.warning(f"Không phát hiện được khuôn mặt trong ảnh: {input_path}")
         return False
 
     logger.info(f"Phát hiện {len(results.multi_face_landmarks)} khuôn mặt.")
+    logger.info(f"MediaPipe inference: {t1:.3f}s")
 
     all_faces_data: List[Dict[str, Any]] = []
-    annotated_image = image_bgr.copy()
+    annotated_image = image_bgr.copy() if save_annotated else None
 
     for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
-        face_data = landmarks_to_dict(face_landmarks, w, h)
-        face_data["face_index"] = face_idx
-        all_faces_data.append(face_data)
-        annotated_image = draw_landmarks_on_image(annotated_image, face_landmarks)
+        if save_json_output:
+            face_data = landmarks_to_dict(face_landmarks, proc_w, proc_h)
+            face_data["face_index"] = face_idx
+            all_faces_data.append(face_data)
+        if save_annotated and annotated_image is not None:
+            annotated_image = draw_landmarks_on_image(annotated_image, face_landmarks)
 
-    # Lưu JSON
-    json_path = output_dir / f"{stem}_landmarks.json"
-    save_json(
-        {
-            "source": str(input_path),
-            "image_size": {"width": w, "height": h},
-            "faces": all_faces_data,
-        },
-        json_path,
-    )
-    logger.info(f"Đã lưu landmarks JSON: {json_path}")
+    if save_json_output:
+        json_path = output_dir / f"{stem}_landmarks.json"
+        save_json(
+            {
+                "source": str(input_path),
+                "image_size": {"width": orig_w, "height": orig_h},
+                "processed_size": {"width": proc_w, "height": proc_h},
+                "resize_scale": resize_scale,
+                "faces": all_faces_data,
+            },
+            json_path,
+        )
+        logger.info(f"Đã lưu landmarks JSON: {json_path}")
+    else:
+        logger.info("Bỏ qua lưu JSON (--no_json).")
 
-    # Lưu ảnh annotate
-    out_img_path = output_dir / f"{stem}_annotated.jpg"
-    cv2.imwrite(str(out_img_path), annotated_image)
-    logger.info(f"Đã lưu ảnh annotate: {out_img_path}")
+    if save_annotated and annotated_image is not None:
+        out_img_path = output_dir / f"{stem}_annotated.jpg"
+        cv2.imwrite(str(out_img_path), annotated_image)
+        logger.info(f"Đã lưu ảnh annotate: {out_img_path}")
+    else:
+        logger.info("Bỏ qua lưu ảnh annotate (--no_annotate).")
 
     return True
 
@@ -190,6 +264,10 @@ def process_video(
     min_tracking_confidence: float = 0.5,
     max_num_faces: int = 1,
     is_webcam: bool = False,
+    max_image_size: Optional[int] = None,
+    save_annotated: bool = True,
+    save_json_output: bool = True,
+    frame_stride: int = 1,
 ) -> bool:
     """
     Xử lý video hoặc webcam: phát hiện landmarks từng frame và lưu MP4 + JSON.
@@ -216,21 +294,32 @@ def process_video(
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) if not is_webcam else -1
+    proc_width, proc_height, resize_scale = _resize_dims(width, height, max_image_size)
 
     source_name = "webcam" if is_webcam else Path(str(input_source)).stem
     out_video_path = output_dir / f"{source_name}_annotated.mp4"
     out_json_path = output_dir / f"{source_name}_landmarks.json"
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    video_writer = cv2.VideoWriter(str(out_video_path), fourcc, fps, (width, height))
+    video_writer = None
+    if save_annotated:
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        video_writer = cv2.VideoWriter(str(out_video_path), fourcc, fps, (proc_width, proc_height))
 
     all_frames_data: List[Dict[str, Any]] = []
     frame_count = 0
     faces_detected_count = 0
+    processed_frames = 0
+    frame_stride = max(1, int(frame_stride))
+    start_time = time.time()
 
     logger.info(f"Bắt đầu xử lý {'webcam' if is_webcam else 'video'}: {input_source}")
     if is_webcam:
         logger.info("Nhấn 'q' để dừng webcam.")
+    logger.info(f"Kích thước frame gốc: {width}x{height}")
+    if resize_scale != 1.0:
+        logger.info(f"Resize frame về: {proc_width}x{proc_height} (scale={resize_scale:.3f})")
+    if frame_stride > 1:
+        logger.info(f"Frame stride: xử lý mỗi {frame_stride} frame.")
 
     with mp_face_mesh.FaceMesh(
         static_image_mode=False,
@@ -244,53 +333,77 @@ def process_video(
             if not ret:
                 break
 
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = face_mesh.process(frame_rgb)
+            if resize_scale != 1.0:
+                frame = cv2.resize(frame, (proc_width, proc_height), interpolation=cv2.INTER_AREA)
 
-            frame_data: Dict[str, Any] = {"frame_index": frame_count, "faces": []}
+            process_this_frame = (frame_count % frame_stride == 0)
+            if process_this_frame:
+                processed_frames += 1
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                results = face_mesh.process(frame_rgb)
 
-            if results.multi_face_landmarks:
-                faces_detected_count += 1
-                for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
-                    face_data = landmarks_to_dict(face_landmarks, width, height)
-                    face_data["face_index"] = face_idx
-                    frame_data["faces"].append(face_data)
-                    frame = draw_landmarks_on_image(frame, face_landmarks)
+                frame_data: Dict[str, Any] = {"frame_index": frame_count, "faces": []}
 
-            all_frames_data.append(frame_data)
-            video_writer.write(frame)
+                if results.multi_face_landmarks:
+                    faces_detected_count += 1
+                    for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
+                        if save_json_output:
+                            face_data = landmarks_to_dict(face_landmarks, proc_width, proc_height)
+                            face_data["face_index"] = face_idx
+                            frame_data["faces"].append(face_data)
+                        if save_annotated:
+                            frame = draw_landmarks_on_image(frame, face_landmarks)
+
+                if save_json_output:
+                    all_frames_data.append(frame_data)
+
+            if save_annotated and video_writer is not None:
+                video_writer.write(frame)
             frame_count += 1
 
             if total_frames > 0 and frame_count % 30 == 0:
                 logger.info(f"  Đã xử lý {frame_count}/{total_frames} frames...")
 
             if is_webcam:
-                cv2.imshow("MediaPipe Face Mesh - DECA_DHMT (q để thoát)", frame)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    logger.info("Người dùng dừng webcam.")
-                    break
+                if save_annotated:
+                    cv2.imshow("MediaPipe Face Mesh - DECA_DHMT (q để thoát)", frame)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        logger.info("Người dùng dừng webcam.")
+                        break
 
     cap.release()
-    video_writer.release()
-    if is_webcam:
+    if video_writer is not None:
+        video_writer.release()
+    if is_webcam and save_annotated:
         cv2.destroyAllWindows()
 
-    # Lưu JSON
-    save_json(
-        {
-            "source": str(input_source),
-            "total_frames": frame_count,
-            "frames_with_faces": faces_detected_count,
-            "video_size": {"width": width, "height": height},
-            "fps": fps,
-            "frames": all_frames_data,
-        },
-        out_json_path,
+    elapsed = time.time() - start_time
+    logger.info(
+        f"Hoàn thành: {frame_count} frames, {faces_detected_count} frames có khuôn mặt,"
+        f" processed={processed_frames}, time={elapsed:.2f}s"
     )
+    if save_annotated:
+        logger.info(f"Video annotate: {out_video_path}")
 
-    logger.info(f"Hoàn thành: {frame_count} frames, {faces_detected_count} frames có khuôn mặt.")
-    logger.info(f"Video annotate: {out_video_path}")
-    logger.info(f"Landmarks JSON: {out_json_path}")
+    if save_json_output:
+        save_json(
+            {
+                "source": str(input_source),
+                "total_frames": frame_count,
+                "processed_frames": processed_frames,
+                "frames_with_faces": faces_detected_count,
+                "video_size": {"width": width, "height": height},
+                "processed_size": {"width": proc_width, "height": proc_height},
+                "resize_scale": resize_scale,
+                "frame_stride": frame_stride,
+                "fps": fps,
+                "frames": all_frames_data,
+            },
+            out_json_path,
+        )
+        logger.info(f"Landmarks JSON: {out_json_path}")
+    else:
+        logger.info("Bỏ qua lưu JSON (--no_json).")
     return True
 
 
@@ -300,6 +413,8 @@ def main() -> None:
     ensure_dir(output_dir)
 
     input_str = args.input
+    save_annotated = not args.no_annotate
+    save_json_output = not args.no_json
 
     # Kiểm tra xem có phải chỉ số webcam không
     try:
@@ -312,6 +427,10 @@ def main() -> None:
             min_tracking_confidence=args.min_tracking_confidence,
             max_num_faces=args.max_num_faces,
             is_webcam=True,
+            max_image_size=args.max_image_size,
+            save_annotated=save_annotated,
+            save_json_output=save_json_output,
+            frame_stride=args.frame_stride,
         )
     except ValueError:
         input_path = Path(input_str)
@@ -330,6 +449,9 @@ def main() -> None:
                 output_dir=output_dir,
                 min_detection_confidence=args.min_detection_confidence,
                 max_num_faces=args.max_num_faces,
+                max_image_size=args.max_image_size,
+                save_annotated=save_annotated,
+                save_json_output=save_json_output,
             )
         elif ext in video_exts:
             logger.info(f"Chế độ video: {input_path}")
@@ -340,6 +462,10 @@ def main() -> None:
                 min_tracking_confidence=args.min_tracking_confidence,
                 max_num_faces=args.max_num_faces,
                 is_webcam=False,
+                max_image_size=args.max_image_size,
+                save_annotated=save_annotated,
+                save_json_output=save_json_output,
+                frame_stride=args.frame_stride,
             )
         else:
             logger.error(f"Định dạng file không được hỗ trợ: {ext}")

@@ -242,6 +242,30 @@ python src/pipeline/run_pipeline.py --input data/samples/test.jpg --skip-deca
 python src/pipeline/run_pipeline.py --input 0 --skip-deca
 ```
 
+### ⚡ Chế độ nhanh (tối ưu hiệu năng)
+
+```bash
+# Bật nhanh cho ảnh (resize + tắt annotate + batch DECA)
+python src/pipeline/run_pipeline.py --input data/samples/test.jpg --fast --device cuda
+
+# Tinh chỉnh thủ công
+python src/pipeline/run_pipeline.py \
+  --input data/samples/test.jpg \
+  --max_image_size 1024 \
+  --no_annotate \
+  --deca_batch_size 4 \
+  --no_save_obj
+
+# Video: giảm tải bằng frame stride và tắt annotate
+python src/pipeline/run_pipeline.py \
+  --input data/samples/test.mp4 \
+  --skip-deca \
+  --frame_stride 2 \
+  --no_annotate
+```
+
+> **Ghi chú:** `--no_json` chỉ nên dùng khi `--skip-deca` vì Stage 2 cần JSON landmarks.
+
 ### Dùng Makefile
 
 ```bash

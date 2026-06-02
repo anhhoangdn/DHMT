@@ -16,10 +16,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 # ---------------------------------------------------------------------------
 # Logger tự định nghĩa — KHÔNG import từ src.utils để tránh cross-env
@@ -86,6 +89,18 @@ def _parse_args() -> argparse.Namespace:
         default=True,
         help="Lưu file .obj mesh",
     )
+    parser.add_argument(
+        "--no_save_obj",
+        action="store_false",
+        dest="save_obj",
+        help="Không lưu file .obj mesh",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=1,
+        help="Số ảnh xử lý mỗi batch khi gọi DECA demo.",
+    )
     return parser.parse_args()
 
 
@@ -124,6 +139,29 @@ def _check_weights(deca_root: Path) -> bool:
     logger.warning("Không tìm thấy DECA weights!")
     logger.warning("Chạy: bash scripts/download_weights.sh")
     return False
+
+
+def _log_device_info(device: str) -> None:
+    try:
+        import torch
+    except Exception as exc:
+        logger.warning(f"Không thể import torch để kiểm tra CUDA: {exc}")
+        return
+
+    logger.info(f"Torch version: {torch.__version__}")
+    logger.info(f"CUDA available: {torch.cuda.is_available()}")
+    if torch.version.cuda:
+        logger.info(f"CUDA runtime: {torch.version.cuda}")
+    if device == "cuda":
+        if not torch.cuda.is_available():
+            logger.warning("Device=cuda nhưng torch.cuda.is_available()=False.")
+            logger.warning("DECA có thể fallback CPU → kiểm tra lại PyTorch/CUDA.")
+        else:
+            try:
+                gpu_name = torch.cuda.get_device_name(0)
+                logger.info(f"GPU: {gpu_name}")
+            except Exception as exc:
+                logger.warning(f"Không lấy được tên GPU: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +260,53 @@ def _run_deca_single(
         return 1
 
 
+def _prepare_batch_dir(image_paths: Sequence[str], batch_dir: Path) -> None:
+    batch_dir.mkdir(parents=True, exist_ok=True)
+    for img_path in image_paths:
+        src = Path(img_path)
+        dst = batch_dir / src.name
+        try:
+            if dst.exists():
+                continue
+            os.symlink(src, dst)
+        except OSError:
+            shutil.copy2(str(src), str(dst))
+
+
+def _run_deca_batch(
+    image_paths: Sequence[str],
+    output_dir: Path,
+    deca_root: Path,
+    demo_script: Path,
+    device: str,
+    save_obj: bool,
+) -> int:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="deca_batch_") as tmpdir:
+        batch_dir = Path(tmpdir)
+        _prepare_batch_dir(image_paths, batch_dir)
+        cmd = [
+            sys.executable,
+            str(demo_script),
+            "--inputpath", str(batch_dir),
+            "--savefolder", str(output_dir),
+            "--device", device,
+        ]
+        if save_obj:
+            cmd += ["--saveObj", "True"]
+        logger.info(f"Chạy batch DECA: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=str(deca_root),
+                text=True,
+            )
+            return result.returncode
+        except Exception as exc:
+            logger.error(f"Lỗi batch DECA: {exc}")
+            return 1
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -239,6 +324,10 @@ def main() -> None:
     logger.info(f"output_dir    : {output_dir}")
     logger.info(f"deca_root     : {deca_root}")
     logger.info(f"device        : {args.device}")
+    logger.info(f"batch_size    : {args.batch_size}")
+    logger.info(f"save_obj      : {args.save_obj}")
+
+    _log_device_info(args.device)
 
     # 1. Validate DECA
     demo_script = _validate_deca(deca_root)
@@ -257,24 +346,59 @@ def main() -> None:
     deca_out = output_dir / "deca"   # DECA tự tạo cấu trúc con bên trong
     failed   = []
 
-    for img_path in image_paths:
-        basename = Path(img_path).stem
-        logger.info(f"\nXử lý: {basename}")
+    batch_size = max(1, int(args.batch_size))
+    if batch_size > 1:
+        logger.info(f"Chế độ batch: {batch_size} ảnh/lần.")
 
-        rc = _run_deca_single(
-            image_path  = img_path,
-            output_dir  = deca_out / basename,
-            deca_root   = deca_root,
-            demo_script = demo_script,
-            device      = args.device,
-            save_obj    = args.save_obj,
+    for i in range(0, len(image_paths), batch_size):
+        batch = image_paths[i:i + batch_size]
+        if len(batch) == 1 or batch_size == 1:
+            img_path = batch[0]
+            basename = Path(img_path).stem
+            logger.info(f"\nXử lý: {basename}")
+
+            rc = _run_deca_single(
+                image_path  = img_path,
+                output_dir  = deca_out / basename,
+                deca_root   = deca_root,
+                demo_script = demo_script,
+                device      = args.device,
+                save_obj    = args.save_obj,
+            )
+
+            if rc != 0:
+                logger.error(f"DECA thất bại: {basename} (code {rc})")
+                failed.append(basename)
+            else:
+                logger.info(f"✓ {basename} → {deca_out / basename}")
+            continue
+
+        logger.info(f"\nXử lý batch {i // batch_size + 1}: {len(batch)} ảnh")
+        rc = _run_deca_batch(
+            image_paths=batch,
+            output_dir=deca_out,
+            deca_root=deca_root,
+            demo_script=demo_script,
+            device=args.device,
+            save_obj=args.save_obj,
         )
-
         if rc != 0:
-            logger.error(f"DECA thất bại: {basename} (code {rc})")
-            failed.append(basename)
-        else:
-            logger.info(f"✓ {basename} → {deca_out / basename}")
+            logger.warning("Batch thất bại, fallback chạy từng ảnh.")
+            for img_path in batch:
+                basename = Path(img_path).stem
+                rc_single = _run_deca_single(
+                    image_path  = img_path,
+                    output_dir  = deca_out / basename,
+                    deca_root   = deca_root,
+                    demo_script = demo_script,
+                    device      = args.device,
+                    save_obj    = args.save_obj,
+                )
+                if rc_single != 0:
+                    logger.error(f"DECA thất bại: {basename} (code {rc_single})")
+                    failed.append(basename)
+                else:
+                    logger.info(f"✓ {basename} → {deca_out / basename}")
 
     # 5. Tổng kết
     logger.info("\n" + "=" * 55)
