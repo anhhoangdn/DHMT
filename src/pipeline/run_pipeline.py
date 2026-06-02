@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 # Thêm project root vào PYTHONPATH
 _ROOT = Path(__file__).resolve().parents[2]
@@ -130,6 +130,26 @@ def _parse_args() -> argparse.Namespace:
         default=0.5,
     )
     return parser.parse_args()
+
+
+def _apply_fast_mode(
+    max_image_size: Optional[int],
+    frame_stride: int,
+    save_annotated: bool,
+    save_obj: bool,
+    batch_size: int,
+) -> Tuple[Optional[int], int, bool, bool, int]:
+    if max_image_size is None:
+        max_image_size = 1024
+    if frame_stride == 1:
+        frame_stride = 2
+    if save_annotated:
+        save_annotated = False
+    if save_obj:
+        save_obj = False
+    if batch_size == 1:
+        batch_size = 4
+    return max_image_size, frame_stride, save_annotated, save_obj, batch_size
 
 
 # ---------------------------------------------------------------------------
@@ -326,16 +346,13 @@ def main() -> None:
     batch_size = max(1, int(args.deca_batch_size))
 
     if args.fast:
-        if max_image_size is None:
-            max_image_size = 1024
-        if frame_stride == 1:
-            frame_stride = 2
-        if save_annotated:
-            save_annotated = False
-        if save_obj:
-            save_obj = False
-        if batch_size == 1:
-            batch_size = 4
+        max_image_size, frame_stride, save_annotated, save_obj, batch_size = _apply_fast_mode(
+            max_image_size=max_image_size,
+            frame_stride=frame_stride,
+            save_annotated=save_annotated,
+            save_obj=save_obj,
+            batch_size=batch_size,
+        )
 
     # Tạo trước tất cả thư mục output
     for d in [landmark_dir,
@@ -391,7 +408,9 @@ def main() -> None:
         logger.info("⏭️  Stage 2 bị bỏ qua (--skip_deca).")
     else:
         if not save_json_output:
-            logger.error("Stage 2 cần JSON landmarks. Bỏ --no_json hoặc dùng --skip_deca.")
+            logger.error(
+                "Stage 2 yêu cầu JSON landmarks. Bỏ --no_json hoặc dùng --skip_deca để bỏ DECA."
+            )
             sys.exit(1)
         t0 = time.time()
         stage2_ok = _run_stage2(

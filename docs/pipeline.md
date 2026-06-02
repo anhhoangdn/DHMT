@@ -131,6 +131,8 @@ data/samples/test.jpg
 - **Batch DECA**: tăng `--deca_batch_size` để giảm chi phí khởi động.
 - **Fast mode**: dùng `--fast` để áp dụng các giá trị tối ưu mặc định.
 
+> **Lưu ý quan trọng:** Stage 2 (DECA) cần JSON landmarks, vì vậy `--no_json` chỉ dùng khi `--skip-deca`.
+
 ---
 
 ## Tham khảo
