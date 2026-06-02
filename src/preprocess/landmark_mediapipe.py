@@ -225,7 +225,7 @@ def process_image(
 
     for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
         if save_json_output:
-            face_data = landmarks_to_dict(face_landmarks, proc_w, proc_h)
+            face_data = landmarks_to_dict(face_landmarks, orig_w, orig_h)
             face_data["face_index"] = face_idx
             all_faces_data.append(face_data)
         if save_annotated and annotated_image is not None:
@@ -348,7 +348,7 @@ def process_video(
                     faces_detected_count += 1
                     for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
                         if save_json_output:
-                            face_data = landmarks_to_dict(face_landmarks, proc_width, proc_height)
+                            face_data = landmarks_to_dict(face_landmarks, width, height)
                             face_data["face_index"] = face_idx
                             frame_data["faces"].append(face_data)
                         if save_annotated:

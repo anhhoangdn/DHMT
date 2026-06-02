@@ -236,10 +236,10 @@ python src/pipeline/run_pipeline.py --input data/samples/test.jpg --output outpu
 python src/pipeline/run_pipeline.py --input data/samples/test.mp4 --output outputs --deca-root external/DECA
 
 # Chỉ landmark (bỏ qua DECA)
-python src/pipeline/run_pipeline.py --input data/samples/test.jpg --skip-deca
+python src/pipeline/run_pipeline.py --input data/samples/test.jpg --skip_deca
 
 # Webcam (landmark only, DECA không hỗ trợ realtime)
-python src/pipeline/run_pipeline.py --input 0 --skip-deca
+python src/pipeline/run_pipeline.py --input 0 --skip_deca
 ```
 
 ### ⚡ Chế độ nhanh (tối ưu hiệu năng)
@@ -259,12 +259,12 @@ python src/pipeline/run_pipeline.py \
 # Video: giảm tải bằng frame stride và tắt annotate
 python src/pipeline/run_pipeline.py \
   --input data/samples/test.mp4 \
-  --skip-deca \
+  --skip_deca \
   --frame_stride 2 \
   --no_annotate
 ```
 
-> **Ghi chú:** `--no_json` chỉ nên dùng khi `--skip-deca` vì Stage 2 cần JSON landmarks.
+> **Ghi chú:** `--no_json` chỉ nên dùng khi `--skip_deca` vì Stage 2 cần JSON landmarks.
 
 ### Dùng Makefile
 
@@ -394,7 +394,7 @@ jupyter notebook notebooks/01_mediapipe_landmarks.ipynb
 ```
 
 > **Lưu ý cho giảng viên:** Nếu không có GPU hoặc DECA weights,
-> có thể demo chỉ phần MediaPipe bằng `--skip-deca`.
+> có thể demo chỉ phần MediaPipe bằng `--skip_deca`.
 
 ---
 

@@ -354,6 +354,12 @@ def main() -> None:
             batch_size=batch_size,
         )
 
+    if not args.skip_deca and not save_json_output:
+        logger.error(
+            "Stage 2 yêu cầu JSON landmarks. Bỏ --no_json hoặc dùng --skip_deca để bỏ DECA."
+        )
+        sys.exit(1)
+
     # Tạo trước tất cả thư mục output
     for d in [landmark_dir,
               output_dir / "meshes",
@@ -407,11 +413,6 @@ def main() -> None:
     if args.skip_deca:
         logger.info("⏭️  Stage 2 bị bỏ qua (--skip_deca).")
     else:
-        if not save_json_output:
-            logger.error(
-                "Stage 2 yêu cầu JSON landmarks. Bỏ --no_json hoặc dùng --skip_deca để bỏ DECA."
-            )
-            sys.exit(1)
         t0 = time.time()
         stage2_ok = _run_stage2(
             landmark_dir = landmark_dir,

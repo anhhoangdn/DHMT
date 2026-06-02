@@ -266,11 +266,18 @@ def _prepare_batch_dir(image_paths: Sequence[str], batch_dir: Path) -> None:
         src = Path(img_path)
         dst = batch_dir / src.name
         try:
-            if dst.exists():
+            if dst.exists() or dst.is_symlink():
                 continue
             os.symlink(src, dst)
         except OSError:
-            shutil.copy2(str(src), str(dst))
+            try:
+                shutil.copy2(str(src), str(dst))
+            except FileExistsError:
+                try:
+                    dst.unlink()
+                except OSError:
+                    pass
+                shutil.copy2(str(src), str(dst))
 
 
 def _run_deca_batch(
