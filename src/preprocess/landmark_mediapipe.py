@@ -99,8 +99,14 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def landmarks_to_dict(face_landmarks, image_width: int, image_height: int) -> Dict[str, Any]:
+def landmarks_to_dict(
+    face_landmarks,
+    image_width: int,
+    image_height: int,
+    resize_scale: float = 1.0,
+) -> Dict[str, Any]:
     """Chuyển đổi MediaPipe landmarks sang dict JSON-serializable."""
+    scale = resize_scale if resize_scale and resize_scale > 0 else 1.0
     points = []
     for idx, lm in enumerate(face_landmarks.landmark):
         points.append({
@@ -108,8 +114,8 @@ def landmarks_to_dict(face_landmarks, image_width: int, image_height: int) -> Di
             "x": float(lm.x),
             "y": float(lm.y),
             "z": float(lm.z),
-            "x_px": int(lm.x * image_width),
-            "y_px": int(lm.y * image_height),
+            "x_px": int(lm.x * image_width / scale),
+            "y_px": int(lm.y * image_height / scale),
         })
     return {"landmarks": points, "num_landmarks": len(points)}
 
@@ -225,7 +231,7 @@ def process_image(
 
     for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
         if save_json_output:
-            face_data = landmarks_to_dict(face_landmarks, orig_w, orig_h)
+            face_data = landmarks_to_dict(face_landmarks, proc_w, proc_h, resize_scale)
             face_data["face_index"] = face_idx
             all_faces_data.append(face_data)
         if save_annotated and annotated_image is not None:
@@ -348,7 +354,12 @@ def process_video(
                     faces_detected_count += 1
                     for face_idx, face_landmarks in enumerate(results.multi_face_landmarks):
                         if save_json_output:
-                            face_data = landmarks_to_dict(face_landmarks, width, height)
+                            face_data = landmarks_to_dict(
+                                face_landmarks,
+                                proc_width,
+                                proc_height,
+                                resize_scale,
+                            )
                             face_data["face_index"] = face_idx
                             frame_data["faces"].append(face_data)
                         if save_annotated:
