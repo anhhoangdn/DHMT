@@ -266,7 +266,7 @@ def _prepare_batch_dir(image_paths: Sequence[str], batch_dir: Path) -> None:
         src = Path(img_path)
         dst = batch_dir / src.name
         try:
-            if dst.exists() or dst.is_symlink():
+            if dst.exists():
                 continue
             os.symlink(src, dst)
         except OSError:
@@ -346,7 +346,7 @@ def main() -> None:
     deca_out = output_dir / "deca"   # DECA tự tạo cấu trúc con bên trong
     failed   = []
 
-    batch_size = max(1, int(args.batch_size))
+    batch_size = max(1, args.batch_size)
     if batch_size > 1:
         logger.info(f"Chế độ batch: {batch_size} ảnh/lần.")
 

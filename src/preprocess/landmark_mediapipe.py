@@ -106,7 +106,7 @@ def landmarks_to_dict(
     resize_scale: float = 1.0,
 ) -> Dict[str, Any]:
     """Chuyển đổi MediaPipe landmarks sang dict JSON-serializable."""
-    scale = resize_scale if resize_scale and resize_scale > 0 else 1.0
+    scale = resize_scale if resize_scale > 0 else 1.0
     points = []
     for idx, lm in enumerate(face_landmarks.landmark):
         points.append({
@@ -315,7 +315,7 @@ def process_video(
     frame_count = 0
     faces_detected_count = 0
     processed_frames = 0
-    frame_stride = max(1, int(frame_stride))
+    frame_stride = max(1, frame_stride)
     start_time = time.time()
 
     logger.info(f"Bắt đầu xử lý {'webcam' if is_webcam else 'video'}: {input_source}")

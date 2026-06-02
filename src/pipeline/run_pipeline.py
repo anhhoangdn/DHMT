@@ -343,7 +343,7 @@ def main() -> None:
     save_obj = not args.no_save_obj
     max_image_size = args.max_image_size
     frame_stride = args.frame_stride
-    batch_size = max(1, int(args.deca_batch_size))
+    batch_size = max(1, args.deca_batch_size)
 
     if args.fast:
         max_image_size, frame_stride, save_annotated, save_obj, batch_size = _apply_fast_mode(
