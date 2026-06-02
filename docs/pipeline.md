@@ -123,6 +123,18 @@ data/samples/test.jpg
 
 ---
 
+## ⚡ Tối ưu hiệu năng (gợi ý)
+
+- **Resize trước MediaPipe**: dùng `--max_image_size` để giới hạn cạnh lớn nhất.
+- **Giảm I/O**: bật `--no_annotate` hoặc `--no_json` (chỉ khi `--skip_deca`).
+- **Giảm tải video**: dùng `--frame_stride` để chỉ xử lý mỗi N frame.
+- **Batch DECA**: tăng `--deca_batch_size` để giảm chi phí khởi động.
+- **Fast mode**: dùng `--fast` để áp dụng các giá trị tối ưu mặc định.
+
+> **Lưu ý quan trọng:** Stage 2 (DECA) cần JSON landmarks, vì vậy `--no_json` chỉ dùng khi `--skip_deca`.
+
+---
+
 ## Tham khảo
 
 - **DECA paper**: Feng et al., "Learning an Animatable Detailed 3D Face Model from In-The-Wild Images", CVPR 2021

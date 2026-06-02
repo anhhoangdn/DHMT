@@ -4,8 +4,13 @@ mediapipe:
   static_image_mode: true
   max_num_faces: 1
   min_detection_confidence: 0.5
+  max_image_size: null
+  save_annotated: true
+  save_json: true
 deca:
   device: "cuda"
   save_mesh: true
   save_texture: true
   save_rendered_image: true
+  batch_size: 1
+  save_obj: true
