@@ -59,55 +59,62 @@
 ## 📁 Cấu trúc thư mục
 
 ```
-DECA_DHMT/
+DHMT/
 ├── README.md
-├── requirements.txt          # Python dependencies
-├── environment.yml           # Conda environment
-├── setup.sh                  # Script cài đặt tự động
-├── Makefile                  # Make targets
+├── requirements.txt
+├── environment.yml
+├── setup.bat                      # Script cài đặt tự động (Windows)
+├── Makefile
 ├── LICENSE
 ├── CONTRIBUTING.md
+├── .gitignore
+├── .gitmodules
+│
+├── envs/                          # Conda environment configs
+│   ├── environment_main.yml       # Môi trường deca_dhmt (Stage 1 - MediaPipe)
+│   └── environment_deca.yml       # Môi trường deca_env (Stage 2 - DECA)
 │
 ├── configs/
-│   ├── default.yaml          # Cấu hình mặc định
-│   ├── infer_image.yaml      # Config cho ảnh tĩnh
-│   └── infer_video.yaml      # Config cho video/webcam
+│   ├── default.yaml               # Cấu hình mặc định
+│   ├── infer_image.yaml           # Config cho ảnh tĩnh
+│   └── infer_video.yaml           # Config cho video/webcam
 │
 ├── src/
 │   ├── __init__.py
 │   ├── preprocess/
 │   │   ├── __init__.py
-│   │   ├── face_detect.py    # Phát hiện khuôn mặt (OpenCV)
+│   │   ├── face_detect.py         # Phát hiện khuôn mặt (OpenCV)
 │   │   ├── landmark_mediapipe.py  # MediaPipe landmarks ⭐
-│   │   └── align.py          # Face alignment
+│   │   └── align.py               # Face alignment
 │   ├── recon/
 │   │   ├── __init__.py
-│   │   ├── run_deca.py       # Wrapper DECA inference ⭐
-│   │   ├── fit_3dmm.py       # 3DMM fitting utilities
-│   │   └── postprocess.py    # Hậu xử lý mesh
+│   │   ├── run_deca.py            # Wrapper DECA inference ⭐
+│   │   ├── fit_3dmm.py            # 3DMM fitting utilities
+│   │   └── postprocess.py         # Hậu xử lý mesh
 │   ├── render/
 │   │   ├── __init__.py
-│   │   ├── mesh_export.py    # Xuất .obj mesh
-│   │   ├── texture_map.py    # UV texture mapping
-│   │   └── visualize.py      # Visualization
+│   │   ├── mesh_export.py         # Xuất .obj mesh
+│   │   ├── texture_map.py         # UV texture mapping
+│   │   └── visualize.py           # Visualization
 │   ├── eval/
 │   │   ├── __init__.py
-│   │   ├── metrics.py        # NME, PSNR, 3D error
-│   │   └── benchmark.py      # Benchmark pipeline
+│   │   ├── metrics.py             # NME, PSNR, SSIM
+│   │   └── benchmark.py           # Benchmark pipeline
 │   ├── utils/
 │   │   ├── __init__.py
-│   │   ├── io.py             # I/O utilities
-│   │   ├── logger.py         # Logger chuẩn
-│   │   └── seed.py           # Random seed
+│   │   ├── io.py                  # I/O utilities
+│   │   ├── logger.py              # Logger chuẩn
+│   │   └── seed.py                # Random seed
 │   └── pipeline/
 │       ├── __init__.py
-│       └── run_pipeline.py   # Pipeline end-to-end ⭐
+│       └── run_pipeline.py        # Pipeline end-to-end ⭐
 │
 ├── scripts/
-│   ├── download_weights.sh   # Tải DECA pretrained weights
-│   ├── run_image.sh          # Chạy pipeline cho ảnh
-│   ├── run_video.sh          # Chạy pipeline cho video
-│   └── run_webcam.sh         # Chạy MediaPipe cho webcam
+│   ├── download_weights.sh        # Tải DECA pretrained weights
+│   ├── render_360.py              # Render mesh góc nhìn 360°
+│   ├── run_image.sh               # Chạy pipeline cho ảnh
+│   ├── run_video.sh               # Chạy pipeline cho video
+│   └── run_webcam.sh              # Chạy MediaPipe cho webcam
 │
 ├── notebooks/
 │   ├── 01_mediapipe_landmarks.ipynb
@@ -120,26 +127,30 @@ DECA_DHMT/
 │   └── troubleshooting.md
 │
 ├── external/
-│   └── DECA/                 # Git submodule (yfeng95/DECA)
+│   ├── README.md
+│   ├── .gitmodules_note
+│   └── DECA/                      # Git submodule (yfeng95/DECA)
 │
 ├── data/
-│   ├── raw/                  # Dữ liệu gốc
-│   ├── processed/            # Dữ liệu đã xử lý
-│   └── samples/              # Ảnh/video mẫu để demo
+│   ├── raw/                       # Dữ liệu gốc (gitignored)
+│   ├── processed/                 # Dữ liệu đã xử lý (gitignored)
+│   └── samples/                   # Ảnh/video mẫu để demo
+│       └── test.jpg
 │
-├── outputs/
-│   ├── landmarks2d/          # JSON + ảnh landmarks
-│   ├── meshes/               # File .obj 3D mesh
-│   ├── textures/             # UV texture maps
-│   ├── renders/              # Ảnh rendered
-│   └── videos/               # Video annotate
+├── outputs/                       # Gitignored — sinh ra khi chạy pipeline
+│   ├── landmarks2d/               # JSON + ảnh landmarks
+│   ├── meshes/                    # File .obj 3D mesh
+│   ├── textures/                  # UV texture maps
+│   ├── renders/                   # Ảnh rendered
+│   └── videos/                    # Video annotate
 │
 ├── reports/
-│   ├── figures/
-│   ├── tables/
+│   ├── figures/                   # Hình ảnh kết quả thực nghiệm
+│   ├── tables/                    # Bảng số liệu
 │   └── DECA_DHMT_report_placeholder.txt
 │
-└── checkpoints/              # Pretrained weights (local)
+└── checkpoints/                   # Pretrained weights (gitignored)
+
 ```
 
 ---
