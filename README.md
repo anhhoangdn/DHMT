@@ -191,7 +191,7 @@ bash scripts/download_weights.sh
 ```
 
 Hoặc tải thủ công:
-1. Truy cập: https://drive.google.com/drive/folders/1h3g4_stMJLJAz_lpRbhCoElDCL5HRfVK
+1. Truy cập: [https://drive.google.com/drive/folders/1h3g4_stMJLJAz_lpRbhCoElDCL5HRfVK](https://drive.google.com/file/d/1rp8kdyLPvErw2dTmqtjISRVvQLj6Yzje/view?usp=sharing)
 2. Tải file: `deca_model.tar`
 3. Đặt vào: `external/DECA/data/deca_model.tar`
 
